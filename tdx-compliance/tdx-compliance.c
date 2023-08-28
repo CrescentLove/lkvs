@@ -3,7 +3,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/list.h>
-
+#include <asm/tdx.h>
 #include "asm/trapnr.h"
 
 #include "tdx-compliance.h"
@@ -76,6 +76,45 @@ static char *result_str(int ret)
 	return "UNKNOWN";
 }
 
+void get_ver(void) {
+		unsigned long* metaddr;
+		unsigned long phys_addr;
+
+		struct tdx_module_output out;
+		metaddr = (unsigned long *)__get_free_pages(GFP_KERNEL, get_order(4096));
+		if (!metaddr) {
+			pr_buf("Fail to alloc for get_ver()\n");
+			return;
+		}
+		phys_addr = virt_to_phys(metaddr);
+
+		int ret = tdx_module_info_rdall((u64)phys_addr, -1, &out);
+		if (ret)
+			pr_buf("RDALL failed:%d", ret);
+		pr_buf("Success get metaddr%llx\n", (u64)phys_addr);
+		// int16_t vendor_id = *(int16_t*)(metaddr+1079);
+		// int16_t minor = *(int16_t*)(metaddr+1089);
+		// int16_t major = *(int16_t*)(metaddr+1091);
+		// pr_buf("dddddddd:\t%d\n", vendor_id);
+		//pr_buf("cerdor:\t%d\nminor:\t%d\nmajor:\t%d\n", vendor_id, minor, major);
+		u64 rett = (&out)->r8;
+		pr_buf("r8_ret:%llu\n", rett);
+
+		if (metaddr) {
+			free_pages((unsigned long)metaddr, get_order(4096));
+			pr_buf("Freed memory for get_ver().\n");
+		}
+}
+void get_ver_rd(void) {
+                struct tdx_module_output out;
+                tdx_module_info_rd(TDX_METADATA_VENDOR_ID, &out);
+                u32 vendor_id = (u32)(&out)->r8;
+                tdx_module_info_rd(TDX_METADATA_MAJOR_ID, &out);
+                int16_t major = (int16_t)(&out)->r8;
+                tdx_module_info_rd(TDX_METADATA_MINOR_ID, &out);
+                int16_t minor = (int16_t)(&out)->r8;
+                pr_buf("ALL metadata fileds below.\nvendor:\t%d\nminor:\t%d\nmajor:\t%d\n", vendor_id, minor, major);
+}
 char *get_version(int version) {
 	if (version == 1)
 		return "_1.0";
@@ -406,7 +445,8 @@ tdx_tests_proc_write(struct file *file,
 	stat_fail = 0;
 
 	memset(buf_ret, 0, SIZE_BUF);
-
+	get_ver_rd();
+	get_ver();
 	if (operation & OPMASK_CPUID)
 		run_all_cpuid();
 	if (operation & OPMASK_CR)

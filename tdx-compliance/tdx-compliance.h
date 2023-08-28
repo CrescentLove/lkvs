@@ -98,4 +98,6 @@ static int read_msr_native(struct test_msr *c);
 
 u64 cur_cr4, cur_cr0;
 extern struct list_head cpuid_list;
+extern int tdx_module_info_rdall(u64 rdx, u64 r8, struct tdx_module_output *out);
+extern int tdx_module_info_rd(u64 rdx, struct tdx_module_output *out);
 #endif
