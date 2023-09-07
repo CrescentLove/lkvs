@@ -53,6 +53,13 @@ LIST_HEAD(cpuid_list);
 #define MSR_MULTIBYTE_ERR_INFO		\
 	"Error: MSR multiple bytes difference,"
 
+#define CHECK_TDCALL_RET(_ret) do {	\
+	if (_ret) {						\
+		parse_to_version(-1,-1);	\
+		return ;					\
+	}								\
+} while(0)
+
 #define PROCFS_NAME		"tdx-tests"
 #define OPMASK_CPUID		1
 #define OPMASK_CR		2
@@ -105,26 +112,50 @@ void get_ver(void) {
 			pr_buf("Freed memory for get_ver().\n");
 		}
 }
-void get_ver_rd(void) {
-                struct tdx_module_output out;
-                tdx_module_info_rd(TDX_METADATA_VENDOR_ID, &out);
-                u32 vendor_id = (u32)(&out)->r8;
-                tdx_module_info_rd(TDX_METADATA_MAJOR_ID, &out);
-                int16_t major = (int16_t)(&out)->r8;
-                tdx_module_info_rd(TDX_METADATA_MINOR_ID, &out);
-                int16_t minor = (int16_t)(&out)->r8;
-                pr_buf("ALL metadata fileds below.\nvendor:\t%d\nminor:\t%d\nmajor:\t%d\n", vendor_id, minor, major);
+
+int parse_to_version(int16_t major, int16_t minor) {
+	if (major == 1 && minor == 0) {
+		spec_version = 1;
+		version_name = "_1.0";
+	}
+	else if (major == 1 && minor == 5) {
+		spec_version = 2;
+		version_name = "_1.5";
+	}
+	else {
+		spec_version = 3;
+		version_name = "_generic"
+	}
 }
-char *get_version(int version) {
-	if (version == 1)
-		return "_1.0";
-	else if (version == 2)
-		return "_1.5";
-	else if (version == 3)
-		return "_generic";
-	else
-		return "none";
+
+inline void 
+
+void get_seam_version(void) {
+				struct tdx_module_output out;
+				int ret;
+
+				ret = tdx_sys_rd(TDX_METADATA_MAJOR_ID, &out);
+				CHECK_TDCALL_RET(ret);
+				int16_t major = (int16_t)(&out)->r8;
+
+				ret = tdx_sys_rd(TDX_METADATA_MINOR_ID, &out);
+				CHECK_TDCALL_RET(ret);
+				int16_t minor = (int16_t)(&out)->r8;
+
+				parse_to_version(major, minor);
+				pr_tdx_tests("TDX Version: %d.%d\n", major, minor);
 }
+
+// char *parse_to_version_spec() {
+// 	if (spec_version == 1)
+// 		return "_1.0";
+// 	else if (spec_version == 2)
+// 		return "_1.5";
+// 	else if (version == 3)
+// 		return "_generic";
+// 	else
+// 		return "none";
+// }
 
 static int check_results_msr(struct test_msr *t)
 {
@@ -236,7 +267,6 @@ static int run_all_msr(void)
 		t->ret = check_results_msr(t);
 		t->ret == 1 ? stat_pass++ : stat_fail++;
 
-		version_name = get_version(t->version);
 		pr_buf("%d: %s%s:\t %s\n", ++stat_total, t->name, version_name,
 		       result_str(t->ret));
 	}
@@ -259,7 +289,6 @@ static int check_results_cpuid(struct test_cpuid *t)
 	 * Show the detail that resutls in the failure,
 	 * CPUID here focus on the fixed bit, not actual cpuid val.
 	 */
-	version_name = get_version(t->version);
 	pr_buf("CPUID: %s%s\n", t->name, version_name);
 	pr_buf("CPUID	 :" CPUID_DUMP_PATTERN,
 	       (t->regs.eax.val & t->regs.eax.mask), (t->regs.ebx.val & t->regs.ebx.mask),
@@ -307,7 +336,6 @@ static int run_all_cpuid(void)
 		else if (t->ret == -1)
 			stat_fail++;
 
-		version_name = get_version(t->version);
 		pr_buf("%d: %s%s:\t %s\n", ++stat_total, t->name, version_name, result_str(t->ret));
 	}
 	return 0;
@@ -389,7 +417,6 @@ static int run_all_cr(void)
 		t->ret = check_results_cr(t);
 		t->ret == 1 ? stat_pass++ : stat_fail++;
 
-		version_name = get_version(t->version);
 		pr_buf("%d: %s%s:\t %s\n", ++stat_total, t->name, version_name,
 		       result_str(t->ret));
 	}
@@ -421,13 +448,6 @@ tdx_tests_proc_write(struct file *file,
 	if (*(str_input + strlen(str_input) - 1) == '\n')
 		*(str_input + strlen(str_input) - 1) = '\0';
 
-	if (strstr(str_input, "1.0"))
-		spec_version = VER1_0;
-	else if (strstr(str_input, "1.5"))
-		spec_version = VER1_5;
-	else
-		spec_version = (VER1_0 | VER1_5);
-
 	if (strstr(str_input, "cpuid"))
 		operation |= OPMASK_CPUID;
 	else if (strstr(str_input, "cr"))
@@ -445,8 +465,7 @@ tdx_tests_proc_write(struct file *file,
 	stat_fail = 0;
 
 	memset(buf_ret, 0, SIZE_BUF);
-	get_ver_rd();
-	get_ver();
+
 	if (operation & OPMASK_CPUID)
 		run_all_cpuid();
 	if (operation & OPMASK_CR)
@@ -486,6 +505,8 @@ static int __init tdx_tests_init(void)
 	buf_ret = kzalloc(SIZE_BUF, GFP_KERNEL);
 	if (!buf_ret)
 		return -ENOMEM;
+
+	get_seam_version();
 
 	initial_cpuid();
 
