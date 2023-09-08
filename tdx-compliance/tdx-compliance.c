@@ -5,6 +5,7 @@
 #include <linux/list.h>
 #include <asm/tdx.h>
 #include "asm/trapnr.h"
+#include <asm/io.h>
 
 #include "tdx-compliance.h"
 #include "tdx-compliance-cpuid.h"
@@ -95,17 +96,17 @@ void get_ver(void) {
 		}
 		phys_addr = virt_to_phys(metaddr);
 
-		int ret = tdx_module_info_rdall((u64)phys_addr, -1, &out);
-		if (ret)
-			pr_buf("RDALL failed:%d", ret);
-		pr_buf("Success get metaddr%llx\n", (u64)phys_addr);
+		//int ret = tdx_module_info_rdall((u64)phys_addr, -1, &out);
+		//if (ret)
+		//	pr_buf("RDALL failed:%d", ret);
+		//pr_buf("Success get metaddr%llx\n", (u64)phys_addr);
 		// int16_t vendor_id = *(int16_t*)(metaddr+1079);
 		// int16_t minor = *(int16_t*)(metaddr+1089);
 		// int16_t major = *(int16_t*)(metaddr+1091);
 		// pr_buf("dddddddd:\t%d\n", vendor_id);
 		//pr_buf("cerdor:\t%d\nminor:\t%d\nmajor:\t%d\n", vendor_id, minor, major);
-		u64 rett = (&out)->r8;
-		pr_buf("r8_ret:%llu\n", rett);
+		//u64 rett = (&out)->r8;
+		//pr_buf("r8_ret:%llu\n", rett);
 
 		if (metaddr) {
 			free_pages((unsigned long)metaddr, get_order(4096));
@@ -113,7 +114,7 @@ void get_ver(void) {
 		}
 }
 
-int parse_to_version(int16_t major, int16_t minor) {
+void parse_to_version(int16_t major, int16_t minor) {
 	if (major == 1 && minor == 0) {
 		spec_version = 1;
 		version_name = "_1.0";
@@ -122,23 +123,25 @@ int parse_to_version(int16_t major, int16_t minor) {
 		spec_version = 2;
 		version_name = "_1.5";
 	}
+	else if (major == 2 && minor == 0) {
+		spec_version = 4;
+		version_name = "_2.0";
+	}
 	else {
 		spec_version = 3;
-		version_name = "_generic"
+		version_name = "_generic";
 	}
 }
-
-inline void 
 
 void get_seam_version(void) {
 				struct tdx_module_output out;
 				int ret;
 
-				ret = tdx_sys_rd(TDX_METADATA_MAJOR_ID, &out);
+				ret = tdx_sys_rd(TDX_SYS_MAJOR_FID, &out);
 				CHECK_TDCALL_RET(ret);
 				int16_t major = (int16_t)(&out)->r8;
 
-				ret = tdx_sys_rd(TDX_METADATA_MINOR_ID, &out);
+				ret = tdx_sys_rd(TDX_SYS_MINOR_FID, &out);
 				CHECK_TDCALL_RET(ret);
 				int16_t minor = (int16_t)(&out)->r8;
 

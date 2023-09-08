@@ -8,19 +8,11 @@
 	.subleaf = _subleaf,			\
 }
 
-#define ALLOC_CPUID_TEST
-{
-	t = kzalloc(sizeof(struct test_cpuid), GFP_KERNEL);		\
-	if (!t) {							\
-		pr_err("Error in cpuid testcase memory allocation.");	\
-		break;							\
-	}
-}
 
 #define EXP_CPUID_BIT(_leaf, _subleaf, _reg, _bit_nr, _val, _vsn) do {	\
-	struct test_cpuid *t;						\
+	struct test_cpuid *t;                                           \
 	int bnr = _bit_nr;						\
-	ALLOC_CPUID_TEST						\
+	t = kzalloc(sizeof(struct test_cpuid), GFP_KERNEL);             \
 	t->name = "CPUID(" #_leaf "," #_subleaf ")." #_reg "[" #_bit_nr "]";\
 	t->version = _vsn;						\
 	t->leaf = _leaf;						\
@@ -31,8 +23,8 @@
 } while (0)
 
 #define EXP_CPUID_BYTE(_leaf, _subleaf, _reg, _val, _vsn) do {		\
-	struct test_cpuid *t;						\
-	ALLOC_CPUID_TEST						\
+	struct test_cpuid *t;                                           \
+	t = kzalloc(sizeof(struct test_cpuid), GFP_KERNEL);             \
 	t->name = "CPUID(" #_leaf "," #_subleaf ")." #_reg;		\
 	t->version = _vsn;						\
 	t->leaf = _leaf;						\
@@ -43,9 +35,9 @@
 } while (0)
 
 #define EXP_CPUID_RES_BITS(_leaf, _subleaf, _reg, _bit_s, _bit_e, _vsn) do {	\
+	struct test_cpuid *t;                                           \
 	int i = 0;								\
-	struct test_cpuid *t;							\
-	ALLOC_CPUID_TEST						\
+	t = kzalloc(sizeof(struct test_cpuid), GFP_KERNEL);             \
 	t->name = "CPUID(" #_leaf "," #_subleaf ")." #_reg "[" #_bit_e ":" #_bit_s "]";\
 	t->version = _vsn;							\
 	t->leaf = _leaf;							\
