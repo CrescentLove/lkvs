@@ -134,16 +134,16 @@ void parse_to_version(int16_t major, int16_t minor) {
 }
 
 void get_seam_version(void) {
-				struct tdx_module_output out;
+				u64 out;
 				int ret;
 
 				ret = tdx_sys_rd(TDX_SYS_MAJOR_FID, &out);
 				CHECK_TDCALL_RET(ret);
-				int16_t major = (int16_t)(&out)->r8;
+				int16_t major = (int16_t)out;
 
 				ret = tdx_sys_rd(TDX_SYS_MINOR_FID, &out);
 				CHECK_TDCALL_RET(ret);
-				int16_t minor = (int16_t)(&out)->r8;
+				int16_t minor = (int16_t)out;
 
 				parse_to_version(major, minor);
 				pr_tdx_tests("TDX Version: %d.%d\n", major, minor);
